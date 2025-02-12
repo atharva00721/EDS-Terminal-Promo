@@ -235,15 +235,15 @@ Each character is XORed with 0, which means...`,
 
   if (phase === "loading") {
     return (
-      <div className="h-screen bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center">
+      <div className="h-screen bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center px-4">
         <motion.div
-          className="text-center bg-black/20 p-8 rounded-lg backdrop-blur-sm"
+          className="w-full max-w-sm md:max-w-md text-center bg-black/20 p-6 md:p-8 rounded-lg backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1 }}
         >
-          <h1 className="text-3xl">Loading EDS Terminal...</h1>
-          <p className="mt-2">Please wait.</p>
+          <h1 className="text-2xl md:text-3xl">Loading EDS Terminal...</h1>
+          <p className="mt-2 text-sm md:text-base">Please wait.</p>
         </motion.div>
       </div>
     );
@@ -251,14 +251,14 @@ Each character is XORed with 0, which means...`,
 
   if (phase === "join") {
     return (
-      <div className="h-screen bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center">
+      <div className="min-h-screen bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center px-4 py-8">
         <motion.div
-          className="text-center p-6 border border-green-500 rounded-md bg-black/20 backdrop-blur-sm"
+          className="w-full max-w-sm md:max-w-md text-center p-4 md:p-6 border border-green-500 rounded-md bg-black/20 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1 }}
         >
-          <h1 className="text-3xl mb-4">Welcome to EDS Terminal</h1>
+          <h1 className="text-2xl md:text-3xl mb-4">Welcome to EDS Terminal</h1>
           <div className="mb-6 space-y-4">
             <div className="flex flex-col items-center gap-2">
               <label htmlFor="username" className="text-sm">
@@ -267,7 +267,7 @@ Each character is XORed with 0, which means...`,
               <input
                 type="text"
                 id="username"
-                className="px-4 py-2 bg-black/50 border border-green-500 rounded text-center focus:outline-none focus:border-green-400"
+                className="w-full max-w-[200px] px-4 py-2 bg-black/50 border border-green-500 rounded text-center focus:outline-none focus:border-green-400 text-sm md:text-base"
                 value={username}
                 onChange={(e) =>
                   setUsername(
@@ -281,9 +281,9 @@ Each character is XORed with 0, which means...`,
             <p className="text-sm text-green-400/70">
               Select your access level:
             </p>
-            <div className="flex gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
-                className="px-4 py-2 border border-green-500 rounded hover:bg-green-500 hover:text-black transition"
+                className="px-4 py-2 border border-green-500 rounded hover:bg-green-500 hover:text-black transition text-sm md:text-base"
                 onClick={() => {
                   if (username.trim()) {
                     setPhase("guest");
@@ -293,7 +293,7 @@ Each character is XORed with 0, which means...`,
                 Join as Guest
               </button>
               <button
-                className="px-4 py-2 border border-green-500 rounded hover:bg-green-500 hover:text-black transition"
+                className="px-4 py-2 border border-green-500 rounded hover:bg-green-500 hover:text-black transition text-sm md:text-base"
                 onClick={() => {
                   if (username.trim()) {
                     setPhase("admin");
@@ -311,9 +311,9 @@ Each character is XORed with 0, which means...`,
 
   if (phase === "admin") {
     return (
-      <div className="h-screen bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center">
+      <div className="min-h-screen bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center p-4">
         <motion.div
-          className="w-full max-w-3xl border border-green-500 p-6 rounded-md bg-black/20 backdrop-blur-sm"
+          className="w-full max-w-sm md:max-w-xl lg:max-w-2xl border border-green-500 p-4 md:p-6 rounded-md bg-black/20 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1 }}
@@ -330,10 +330,10 @@ Each character is XORed with 0, which means...`,
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-sm">
+              <div className="text-xs md:text-sm flex flex-col md:flex-row items-center gap-2">
                 <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                 <span>System Status: ACTIVE</span>
-                <span className="text-xs text-green-500/50">
+                <span className="text-xs text-green-500/50 hidden md:inline">
                   {new Date().toISOString()}
                 </span>
               </div>
@@ -358,11 +358,13 @@ Each character is XORed with 0, which means...`,
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <span>Administrator Password:</span>
+                  <div className="flex flex-col md:flex-row items-start md:items-center gap-2">
+                    <span className="text-sm md:text-base whitespace-nowrap">
+                      Administrator Password:
+                    </span>
                     <input
                       type="password"
-                      className="flex-1 bg-transparent border-b border-green-500 outline-none text-green-500 px-2 py-1 font-mono"
+                      className="w-full bg-transparent border-b border-green-500 outline-none text-green-500 px-2 py-1 font-mono text-sm md:text-base"
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
                       onKeyDown={(e) => {
@@ -449,21 +451,21 @@ Each character is XORed with 0, which means...`,
 
   // Phase === "guest"
   return (
-    <div className="h-screen overflow-hidden bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center p-4">
+    <div className="h-screen overflow-hidden bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center p-2 sm:p-4">
       <motion.div
-        className="w-full max-w-3xl border border-green-500 p-6 rounded-md bg-black/20 shadow-xl backdrop-blur-sm relative z-10"
+        className="w-full max-w-sm md:max-w-xl lg:max-w-2xl border border-green-500 p-3 sm:p-4 md:p-6 rounded-md bg-black/20 shadow-xl backdrop-blur-sm relative z-10"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1 }}
       >
         <div
           ref={terminalRef}
-          className="h-[70vh] overflow-y-auto mb-4 terminal-content terminal-scrollbar"
+          className="h-[60vh] md:h-[70vh] overflow-y-auto mb-4 terminal-content terminal-scrollbar"
         >
           {logs.map((log, index) => (
             <div
               key={index}
-              className={`whitespace-pre-wrap ${
+              className={`whitespace-pre-wrap text-sm md:text-base ${
                 log.type === "error"
                   ? "text-red-500"
                   : log.type === "success"
@@ -477,11 +479,13 @@ Each character is XORed with 0, which means...`,
             </div>
           ))}
         </div>
-        <div className="flex items-center border-t border-green-500/30 pt-4">
-          <span className="pr-2 text-green-400">{username}@eds:~$</span>
+        <div className="flex items-center border-t border-green-500/30 pt-3 md:pt-4">
+          <span className="pr-2 text-green-400 text-sm md:text-base">
+            {username}@eds:~$
+          </span>
           <input
             type="text"
-            className="w-full bg-transparent text-green-500 outline-none"
+            className="w-full bg-transparent text-green-500 outline-none text-sm md:text-base"
             value={command}
             onChange={(e) => setCommand(e.target.value)}
             onKeyDown={handleKeyDown}
