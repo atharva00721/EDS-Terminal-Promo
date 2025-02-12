@@ -1,17 +1,8 @@
 "use client";
 import { useEffect, useState, KeyboardEvent, useRef } from "react";
-import { motion } from "framer-motion";
-
-const calculateTimeLeft = () => {
-  const difference =
-    new Date("2025-02-14T00:00:00").getTime() - new Date().getTime();
-  return {
-    days: Math.max(0, Math.floor(difference / (1000 * 60 * 60 * 24))),
-    hours: Math.max(0, Math.floor((difference / (1000 * 60 * 60)) % 24)),
-    minutes: Math.max(0, Math.floor((difference / 1000 / 60) % 60)),
-    seconds: Math.max(0, Math.floor((difference / 1000) % 60)),
-  };
-};
+import { motion, AnimatePresence } from "framer-motion";
+import { virtualFileSystem, getNode, parsePath } from "./utils/fileSystem";
+import { FileSystemNode } from "./types/system";
 
 const ASCII_ART = `
 ███████╗██████╗  ███████╗
@@ -22,6 +13,25 @@ const ASCII_ART = `
 ╚══════╝╚═════╝  ╚══════╝
 Echelon Dev Society Terminal Edition
 `;
+
+const CITRONICS_ART = `
+ ██████╗██╗████████╗██████╗  ██████╗ ███╗   ██╗██╗ ██████╗███████╗
+██╔════╝██║╚══██╔══╝██╔══██╗██╔═══██╗████╗  ██║██║██╔════╝██╔════╝
+██║     ██║   ██║   ██████╔╝██║   ██║██╔██╗ ██║██║██║     ███████╗
+██║     ██║   ██║   ██╔══██╗██║   ██║██║╚██╗██║██║██║     ╚════██║
+╚██████╗██║   ██║   ██║  ██║╚██████╔╝██║ ╚████║██║╚██████╗███████║
+ ╚═════╝╚═╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝ ╚═════╝╚══════╝`;
+
+const calculateTimeLeft = () => {
+  const difference =
+    new Date("2025-02-14T13:00:00").getTime() - new Date().getTime();
+  return {
+    days: Math.max(0, Math.floor(difference / (1000 * 60 * 60 * 24))),
+    hours: Math.max(0, Math.floor((difference / (1000 * 60 * 60)) % 24)),
+    minutes: Math.max(0, Math.floor((difference / 1000 / 60) % 60)),
+    seconds: Math.max(0, Math.floor((difference / 1000) % 60)),
+  };
+};
 
 const CODE_SNIPPET = `
 def X(x, y): 
@@ -37,6 +47,33 @@ print("".join(msg1))
 
 const SOLUTION = "dev hacks";
 const BINARY_SEQUENCE = "11100 11 11111101001";
+const COMMANDS = [
+  "help",
+  "clear",
+  "countdown",
+  "about",
+  "history",
+  "whoami",
+  "solve",
+  "ls",
+  "cd",
+  "cat",
+  "citronics",
+];
+
+const loadingTexts = [
+  "Initializing system...",
+  "Loading modules...",
+  "Establishing connection...",
+  "Scanning ports...",
+  "Running security checks...",
+  "Starting terminal...",
+];
+
+const glitchText = `
+01001000 01100101 01101100 01101100 01101111
+10110100 10010101 10110011 10101010 10011100
+11001100 11000011 11001001 11000101 11010010`;
 
 export default function EDSTerminalAppRefined() {
   // phases: "loading", "join", "guest", "admin"
@@ -54,6 +91,8 @@ export default function EDSTerminalAppRefined() {
   const [adminPassword, setAdminPassword] = useState("");
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [securityMessage, setSecurityMessage] = useState("");
+  const [currentPath, setCurrentPath] = useState("/home");
+  const [loadingStep, setLoadingStep] = useState(0);
 
   // Update countdown every second (when in guest phase)
   useEffect(() => {
@@ -68,9 +107,17 @@ export default function EDSTerminalAppRefined() {
   // Simulate loading then show join screen
   useEffect(() => {
     if (phase === "loading") {
-      setTimeout(() => {
-        setPhase("join");
-      }, 2000);
+      const interval = setInterval(() => {
+        setLoadingStep((prev) => {
+          if (prev >= loadingTexts.length - 1) {
+            clearInterval(interval);
+            setTimeout(() => setPhase("join"), 500);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 600);
+      return () => clearInterval(interval);
     }
   }, [phase]);
 
@@ -143,7 +190,11 @@ countdown    - time until the reveal
 about        - About EDS
 history      - Show command history
 whoami       - Display current user
-solve <ans>  - Submit solution for the puzzle`,
+solve <ans>  - Submit solution for the puzzle
+ls           - List directory contents
+cd <dir>     - Change directory
+cat <file>   - Display file contents
+citro    - Show Citronics information`,
           "output"
         );
       } else if (lowerCommand === "clear") {
@@ -183,6 +234,8 @@ Join our community for cutting-edge developments.`,
           addLog(
             `🎉 Congratulations! You've solved the puzzle!
 
+Dev Hacks is coming soon stay tuned for more updates.
+
 Binary sequence unlocked: ${BINARY_SEQUENCE}
 
 This sequence might be useful later... 
@@ -199,9 +252,46 @@ Each character is XORed with 0, which means...`,
             "error"
           );
         }
+      } else if (lowerCommand === "ls") {
+        const node = getNode(currentPath);
+        if (node?.children) {
+          const files = Object.values(node.children)
+            .map(
+              (f) =>
+                `${f.type === "directory" ? "d" : "-"}${
+                  f.permissions || "rw-r--r--"
+                } ${f.name}${f.type === "directory" ? "/" : ""}`
+            )
+            .join("\n");
+          addLog(files, "output");
+        }
+      } else if (lowerCommand.startsWith("cd ")) {
+        const newPath = command.slice(3).trim();
+        const targetNode = getNode(
+          newPath.startsWith("/") ? newPath : `${currentPath}/${newPath}`
+        );
+        if (targetNode?.type === "directory") {
+          setCurrentPath(newPath);
+          addLog(`Changed directory to: ${newPath}`, "success");
+        } else {
+          addLog("Directory not found", "error");
+        }
+      } else if (lowerCommand.startsWith("cat ")) {
+        const filePath = command.slice(4).trim();
+        const node = getNode(
+          filePath.startsWith("/") ? filePath : `${currentPath}/${filePath}`
+        );
+        if (node?.type === "file") {
+          addLog(node.content || "", "output");
+        } else {
+          addLog("File not found", "error");
+        }
+      } else if (lowerCommand === "citro") {
+        addLog(CITRONICS_ART, "success");
+        addLog("\nComing Soon...", "output");
       } else if (lowerCommand === "") {
         // Do nothing for empty command
-      } else {
+      } else if (!COMMANDS.includes(lowerCommand.split(" ")[0])) {
         addLog(`Command not found: ${command}`, "error");
       }
     }
@@ -235,15 +325,67 @@ Each character is XORed with 0, which means...`,
 
   if (phase === "loading") {
     return (
-      <div className="h-screen bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center px-4">
+      <div className="h-screen bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center px-4 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <div className="animate-slide-down whitespace-pre font-mono text-xs">
+            {glitchText}
+          </div>
+        </div>
+
         <motion.div
-          className="w-full max-w-sm md:max-w-md text-center bg-black/20 p-6 md:p-8 rounded-lg backdrop-blur-sm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1 }}
+          className="w-full max-w-sm md:max-w-md text-center bg-black/40 p-6 md:p-8 rounded-lg backdrop-blur-sm border border-green-500/20"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
         >
-          <h1 className="text-2xl md:text-3xl">Loading EDS Terminal...</h1>
-          <p className="mt-2 text-sm md:text-base">Please wait.</p>
+          <motion.div
+            className="text-2xl md:text-3xl mb-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            EDS Terminal
+          </motion.div>
+
+          <div className="space-y-4">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={loadingStep}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="text-sm md:text-base"
+              >
+                {loadingTexts[loadingStep]}
+              </motion.div>
+            </AnimatePresence>
+
+            <div className="h-1 bg-green-500/20 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-green-500"
+                initial={{ width: "0%" }}
+                animate={{
+                  width: `${(loadingStep + 1) * (100 / loadingTexts.length)}%`,
+                }}
+                transition={{ duration: 0.5 }}
+              />
+            </div>
+
+            <div className="flex justify-center gap-2">
+              {[...Array(3)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="w-2 h-2 bg-green-500 rounded-full"
+                  animate={{ opacity: [0.2, 1, 0.2] }}
+                  transition={{
+                    duration: 1,
+                    repeat: Infinity,
+                    delay: i * 0.2,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
         </motion.div>
       </div>
     );
@@ -310,139 +452,222 @@ Each character is XORed with 0, which means...`,
   }
 
   if (phase === "admin") {
+    const handleAuth = () => {
+      setIsAuthenticating(true);
+      setSecurityMessage("Validating security credentials...");
+
+      setTimeout(() => {
+        setSecurityMessage("Checking access permissions...");
+      }, 1000);
+
+      setTimeout(() => {
+        setSecurityMessage("Access denied: Invalid security clearance");
+        setAdminAttempts((prev) => prev + 1);
+        setAdminPassword("");
+        setIsAuthenticating(false);
+
+        if (adminAttempts >= 2) {
+          setTimeout(() => {
+            // addLog(
+            //   "SECURITY BREACH DETECTED: System locked. Access denied.",
+            //   "error"
+            // );
+            setPhase("join");
+            setAdminAttempts(0);
+          }, 1000);
+        }
+      }, 2000);
+    };
+
     return (
-      <div className="min-h-screen bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center p-4">
+      <div className="min-h-screen bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center p-4 relative overflow-hidden">
+        {/* Background Matrix Effect */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="animate-slide-down whitespace-pre font-mono text-xs">
+            {glitchText.repeat(20)}
+          </div>
+        </div>
+
+        {/* Scanner Line Effect */}
         <motion.div
-          className="w-full max-w-sm md:max-w-xl lg:max-w-2xl border border-green-500 p-4 md:p-6 rounded-md bg-black/20 backdrop-blur-sm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1 }}
+          className="absolute inset-0 bg-gradient-to-b from-green-500/0 via-green-500/10 to-green-500/0"
+          initial={{ y: "-100%" }}
+          animate={{ y: "100%" }}
+          transition={{
+            repeat: Infinity,
+            duration: 2,
+            ease: "linear",
+          }}
+        />
+
+        <motion.div
+          className="w-full max-w-lg lg:max-w-xl relative"
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
         >
-          <div className="space-y-4">
-            <div className="flex flex-col space-y-2">
-              <div className="text-sm border border-red-500/50 bg-red-500/10 p-3 rounded">
-                <span className="text-red-500 font-bold">SECURITY ALERT:</span>
-                <div className="mt-1 text-red-400/80">
-                  • All access attempts are logged and monitored
-                  <br />
-                  • Unauthorized access is prohibited by law
-                  <br />• Multiple failed attempts will trigger system lockdown
-                </div>
-              </div>
+          {/* Top Security Banner */}
+          <motion.div
+            className="absolute -top-6 left-0 right-0 text-center text-xs sm:text-sm text-red-500 font-bold"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            SECURITY LEVEL: MAXIMUM
+          </motion.div>
 
-              <div className="text-xs md:text-sm flex flex-col md:flex-row items-center gap-2">
-                <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                <span>System Status: ACTIVE</span>
-                <span className="text-xs text-green-500/50 hidden md:inline">
-                  {new Date().toISOString()}
-                </span>
-              </div>
+          <div className="bg-black/40 backdrop-blur-sm border border-green-500/30 rounded-lg p-6 space-y-6">
+            {/* Header */}
+            <div className="text-center space-y-2">
+              <motion.div
+                className="text-xl sm:text-2xl font-bold text-green-400"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                Administrator Access Required
+              </motion.div>
+              <motion.div
+                className="text-sm text-green-500/70"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
+                Restricted Terminal • Level 5 Clearance
+              </motion.div>
+            </div>
 
-              <div className="border border-green-500/20 bg-black/40 p-4 rounded-md space-y-3">
-                <div className="animate-pulse text-sm">
-                  <span className="text-green-400">[SYS]</span> Secure
-                  authentication required...
-                </div>
-
-                {isAuthenticating ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="animate-spin">⠋</span>
-                      <span>Authenticating...</span>
-                    </div>
-                    <div className="h-1 bg-green-500/20 rounded">
-                      <div className="h-full w-1/2 bg-green-500 rounded animate-pulse" />
-                    </div>
-                    <div className="text-xs text-green-500/50">
-                      Verifying credentials...
-                    </div>
+            {/* Security Alert Box */}
+            <motion.div
+              className="border border-red-500/30 bg-red-500/5 rounded-md p-4"
+              initial={{ x: -50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.5, type: "spring" }}
+            >
+              <div className="flex items-start space-x-3">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="w-2 h-2 rounded-full bg-red-500 mt-1.5"
+                />
+                <div className="space-y-2">
+                  <div className="text-red-500 font-bold text-sm sm:text-base">
+                    SECURITY ALERT
+                    <ul className="text-red-400/80 text-xs sm:text-sm space-y-1">
+                      <li>• Access attempts are logged and monitored</li>
+                      <li>
+                        • Unauthorized access will trigger security protocols
+                      </li>
+                      <li>
+                        • Multiple failed attempts will result in lockdown
+                      </li>
+                    </ul>
                   </div>
-                ) : (
-                  <div className="flex flex-col md:flex-row items-start md:items-center gap-2">
-                    <span className="text-sm md:text-base whitespace-nowrap">
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Login Form */}
+            <div className="space-y-4">
+              {isAuthenticating ? (
+                <motion.div
+                  className="space-y-4"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <div className="flex items-center justify-center gap-3">
+                    <motion.span
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        duration: 1,
+                        repeat: Infinity,
+                        ease: "linear",
+                      }}
+                    >
+                      ⟳
+                    </motion.span>
+                    <span>Authenticating...</span>
+                  </div>
+                  <motion.div
+                    className="h-1 bg-green-500/20 rounded-full overflow-hidden"
+                    initial={{ width: 0 }}
+                    animate={{ width: "100%" }}
+                    transition={{ duration: 2 }}
+                  >
+                    <motion.div
+                      className="h-full bg-green-500"
+                      animate={{ x: ["0%", "100%"] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                    />
+                  </motion.div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  className="space-y-4"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.6 }}
+                >
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <label className="text-sm whitespace-nowrap">
                       Administrator Password:
-                    </span>
+                    </label>
                     <input
                       type="password"
-                      className="w-full bg-transparent border-b border-green-500 outline-none text-green-500 px-2 py-1 font-mono text-sm md:text-base"
+                      className="w-full bg-black/50 border-b border-green-500 px-3 py-2 outline-none focus:border-green-400 transition-colors"
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && adminPassword) {
-                          setIsAuthenticating(true);
-                          setSecurityMessage(
-                            "Validating security credentials..."
-                          );
-
-                          setTimeout(() => {
-                            setSecurityMessage(
-                              "Checking access permissions..."
-                            );
-                          }, 1000);
-
-                          setTimeout(() => {
-                            setSecurityMessage(
-                              "Access denied: Invalid security clearance"
-                            );
-                            setAdminAttempts((prev) => prev + 1);
-                            setAdminPassword("");
-                            setIsAuthenticating(false);
-
-                            if (adminAttempts >= 2) {
-                              addLog(
-                                "SECURITY BREACH DETECTED: System locked. Access denied.",
-                                "error"
-                              );
-                              setPhase("join");
-                              setAdminAttempts(0);
-                            }
-                          }, 2000);
-                        } else if (e.key === "Escape") {
-                          setAdminPassword("");
-                          setAdminAttempts(0);
-                          setPhase("join");
+                          handleAuth();
                         }
                       }}
                       autoFocus
                       disabled={isAuthenticating}
+                      placeholder="Enter security clearance code..."
                     />
                   </div>
-                )}
+                </motion.div>
+              )}
 
+              {/* Security Message */}
+              <AnimatePresence mode="wait">
                 {securityMessage && (
-                  <div className="text-sm text-yellow-500 animate-pulse">
+                  <motion.div
+                    key={securityMessage}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="text-yellow-500 text-sm text-center"
+                  >
                     {securityMessage}
-                  </div>
+                  </motion.div>
                 )}
-
-                {adminPassword && adminAttempts > 0 && !isAuthenticating && (
-                  <div className="text-red-500 text-sm animate-pulse border border-red-500/20 bg-red-500/5 p-2 rounded">
-                    SECURITY ALERT: Authentication failed. {3 - adminAttempts}{" "}
-                    attempts remaining before lockout.
-                  </div>
-                )}
-
-                <div className="text-xs text-green-500/50 border-t border-green-500/20 pt-2">
-                  [ESC] Exit | [ENTER] Authenticate | Secure Connection: ENABLED
-                </div>
-              </div>
+              </AnimatePresence>
             </div>
 
-            <div className="flex justify-end mt-4">
+            {/* Bottom Actions */}
+            <motion.div
+              className="flex justify-between items-center pt-4 border-t border-green-500/20 text-xs"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7 }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                <span>Connection Secure</span>
+              </div>
               <button
-                className="px-4 py-2 border border-green-500 rounded hover:bg-green-500 hover:text-black transition text-sm group relative"
                 onClick={() => {
                   setAdminPassword("");
                   setAdminAttempts(0);
                   setPhase("join");
                 }}
-                disabled={isAuthenticating}
+                className="text-green-500 hover:text-green-400 transition-colors"
               >
-                <span className="group-hover:animate-pulse">
-                  Exit Secure Terminal
-                </span>
+                Exit Terminal
               </button>
-            </div>
+            </motion.div>
           </div>
         </motion.div>
       </div>
@@ -481,7 +706,7 @@ Each character is XORed with 0, which means...`,
         </div>
         <div className="flex items-center border-t border-green-500/30 pt-3 md:pt-4">
           <span className="pr-2 text-green-400 text-sm md:text-base">
-            {username}@eds:~$
+            {username}@eds:{currentPath}$
           </span>
           <input
             type="text"
