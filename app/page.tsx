@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState, KeyboardEvent, useRef } from "react";
 import { motion } from "framer-motion";
 
@@ -15,15 +14,32 @@ const calculateTimeLeft = () => {
 };
 
 const ASCII_ART = `
-██████╗ ███████╗██╗   ██╗██╗  ██╗ █████╗  ██████╗██╗  ██╗
-██╔══██╗██╔════╝██║   ██║██║  ██║██╔══██╗██╔════╝██║ ██╔╝
-██║  ██║█████╗  ██║   ██║███████║███████║██║     █████╔╝ 
-██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══██║██╔══██║██║     ██╔═██╗ 
-██████╔╝███████╗ ╚████╔╝ ██║  ██║██║  ██║╚██████╗██║  ██╗
-╚═════╝ ╚══════╝  ╚═══╝  ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+███████╗██████╗  ███████╗
+██╔════╝██╔══██╗ ██╔════╝
+█████╗  ██║  ██║ ███████╗
+██╔══╝  ██║  ██║ ╚════██║
+███████╗██████╔╝ ███████║
+╚══════╝╚═════╝  ╚══════╝
+Echelon Dev Society Terminal Edition
 `;
 
-export default function TerminalCountdownInteractive() {
+const CODE_SNIPPET = `
+def X(x, y): 
+    return chr(x ^ y)
+
+msg1 = [
+    X(100, 0), X(101, 0), X(118, 0), " ",  
+    X(104, 0), X(97, 0), X(99, 0), X(107, 0), X(115, 0)  
+]  
+print("".join(msg1))
+
+`;
+
+const SOLUTION = "dev hacks";
+
+export default function EDSTerminalAppRefined() {
+  // phases: "loading", "join", "guest", "admin"
+  const [phase, setPhase] = useState("loading");
   const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
   const [command, setCommand] = useState("");
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -31,33 +47,57 @@ export default function TerminalCountdownInteractive() {
   const [logs, setLogs] = useState<
     { text: string; type: "input" | "output" | "error" | "success" }[]
   >([]);
-  const [isTyping, setIsTyping] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
-
-  // Matrix rain effect state
   const [showMatrix, setShowMatrix] = useState(false);
 
+  // Update countdown every second (when in guest phase)
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(calculateTimeLeft());
-    }, 1000);
+    if (phase === "guest") {
+      const timer = setInterval(() => {
+        setTimeLeft(calculateTimeLeft());
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [phase]);
 
-    // Initial boot sequence
-    simulateBootSequence();
+  // Simulate loading then show join screen
+  useEffect(() => {
+    if (phase === "loading") {
+      setTimeout(() => {
+        setPhase("join");
+      }, 2000);
+    }
+  }, [phase]);
 
-    return () => clearInterval(timer);
-  }, []);
+  // Boot sequence when guest phase starts
+  useEffect(() => {
+    if (phase === "guest") {
+      simulateBootSequence();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   const simulateBootSequence = async () => {
     const bootMessages = [
-      { text: "Initializing system...", delay: 500 },
-      { text: "Loading kernel modules...", delay: 300 },
+      { text: "Initializing EDS Terminal...", delay: 500 },
+      { text: "Loading core modules...", delay: 400 },
       { text: "Establishing secure connection...", delay: 400 },
-      { text: ASCII_ART, delay: 100 },
+      { text: ASCII_ART, delay: 200 },
       {
-        text: "Terminal ready. Type 'help' for available commands.",
-        delay: 200,
+        text: "Terminal ready. Type 'help' to view available options.",
+        delay: 300,
       },
+      {
+        text: "Options include: countdown, matrix, about, history, solve <answer>",
+        delay: 300,
+      },
+      {
+        text: "Puzzle: Review the following code snippet and solve it.",
+        delay: 400,
+      },
+      { text: "Code Snippet:", delay: 200 },
+      { text: CODE_SNIPPET, delay: 400 },
+      { text: "Submit your answer with: solve <your answer>", delay: 300 },
     ];
 
     for (const msg of bootMessages) {
@@ -71,86 +111,72 @@ export default function TerminalCountdownInteractive() {
     type: "input" | "output" | "error" | "success"
   ) => {
     setLogs((prev) => [...prev, { text, type }]);
+    // Auto scroll
     setTimeout(() => {
       terminalRef.current?.scrollTo({
         top: terminalRef.current.scrollHeight,
         behavior: "smooth",
       });
-    }, 100);
+    }, 50);
   };
 
   const handleCommand = async () => {
-    const trimmedCommand = command.trim().toLowerCase();
-
-    // Add to command history
+    const trimmedCommand = command.trim();
+    const lowerCommand = trimmedCommand.toLowerCase();
     setCommandHistory((prev) => [...prev, trimmedCommand]);
-    addLog(`root@devhack:~$ ${command}`, "input");
+    addLog(`root@eds:~$ ${command}`, "input");
 
-    // Command processing
-    switch (trimmedCommand) {
-      case "help":
+    if (phase === "guest") {
+      if (lowerCommand === "help") {
         addLog(
           `Available commands:
-          help        - Show this help message
-          clear      - Clear terminal
-          countdown  - Show time until event
-          matrix     - Toggle matrix effect
-          about      - About DevHack
-          easteregg  - ???
-          history    - Show command history`,
+help         - Show help message
+clear        - Clear terminal
+countdown    - Show time until February 14, 2025
+matrix       - Toggle Matrix effect
+about        - About EDS
+history      - Show command history
+solve <ans>  - Submit solution for the puzzle`,
           "output"
         );
-        break;
-
-      case "clear":
+      } else if (lowerCommand === "clear") {
         setLogs([]);
-        break;
-
-      case "countdown":
+      } else if (lowerCommand === "countdown") {
         addLog(
-          `Time remaining until DevHack 2025:
-          ${timeLeft.days} days
-          ${timeLeft.hours} hours
-          ${timeLeft.minutes} minutes
-          ${timeLeft.seconds} seconds`,
+          `Time remaining until February 14, 2025:
+${timeLeft.days} days
+${timeLeft.hours} hours
+${timeLeft.minutes} minutes
+${timeLeft.seconds} seconds`,
           "success"
         );
-        break;
-
-      case "matrix":
+      } else if (lowerCommand === "matrix") {
         setShowMatrix(!showMatrix);
         addLog("Toggling Matrix effect...", "output");
-        break;
-
-      case "about":
+      } else if (lowerCommand === "about") {
         addLog(
-          `DevHack 2025
-          A revolutionary hackathon experience.
-          Date: February 14, 2025
-          Location: [Classified]
-          Prize Pool: $$$`,
+          `Echelon Dev Society (EDS)
+A premium interactive console experience.
+Join our community for cutting-edge developments.`,
           "output"
         );
-        break;
-
-      case "history":
+      } else if (lowerCommand === "history") {
         addLog(commandHistory.join("\n"), "output");
-        break;
-
-      case "easteregg":
-        addLog("Initiating secret sequence...", "success");
-        // Add your creative easter egg here
-        setTimeout(() => {
-          addLog("🎉 Congratulations! You found the easter egg!", "success");
-          // Add more creative responses
-        }, 1000);
-        break;
-
-      case "":
-        break;
-
-      default:
+      } else if (lowerCommand.startsWith("solve")) {
+        const userAnswer = trimmedCommand.slice(6).trim().toLowerCase();
+        if (userAnswer === SOLUTION) {
+          addLog(
+            "🎉 Congratulations! You've solved the puzzle and unlocked the easter egg!",
+            "success"
+          );
+        } else {
+          addLog("Incorrect solution. Try again.", "error");
+        }
+      } else if (lowerCommand === "") {
+        // Do nothing for empty command
+      } else {
         addLog(`Command not found: ${command}`, "error");
+      }
     }
 
     setCommand("");
@@ -180,10 +206,78 @@ export default function TerminalCountdownInteractive() {
     }
   };
 
+  if (phase === "loading") {
+    return (
+      <div className="min-h-screen bg-black text-green-500 font-mono flex flex-col justify-center items-center">
+        <motion.div
+          className="text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1 }}
+        >
+          <h1 className="text-3xl">Loading EDS Terminal...</h1>
+          <p className="mt-2">Please wait.</p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (phase === "join") {
+    return (
+      <div className="min-h-screen bg-black text-green-500 font-mono flex flex-col justify-center items-center">
+        <motion.div
+          className="text-center p-6 border border-green-500 rounded-md"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1 }}
+        >
+          <h1 className="text-3xl mb-4">Welcome to EDS Terminal</h1>
+          <p className="mb-6">Select your access level:</p>
+          <div className="flex gap-4 justify-center">
+            <button
+              className="px-4 py-2 border border-green-500 rounded hover:bg-green-500 hover:text-black transition"
+              onClick={() => setPhase("guest")}
+            >
+              Join as Guest
+            </button>
+            <button
+              className="px-4 py-2 border border-green-500 rounded hover:bg-green-500 hover:text-black transition"
+              onClick={() => setPhase("admin")}
+            >
+              Join as Admin
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (phase === "admin") {
+    return (
+      <div className="min-h-screen bg-black text-green-500 font-mono flex flex-col justify-center items-center">
+        <motion.div
+          className="text-center p-6 border border-green-500 rounded-md"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1 }}
+        >
+          <h1 className="text-3xl mb-4">Admin Panel</h1>
+          <p className="mb-6">Admin access coming soon!</p>
+          <button
+            className="px-4 py-2 border border-green-500 rounded hover:bg-green-500 hover:text-black transition"
+            onClick={() => setPhase("join")}
+          >
+            Back
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Phase === "guest"
   return (
     <div className="min-h-screen bg-black text-green-500 font-mono flex flex-col justify-center items-center p-4">
       {showMatrix && <MatrixRain />}
-
       <motion.div
         className="w-full max-w-3xl border border-green-500 p-6 rounded-md bg-black/90 shadow-xl backdrop-blur-sm"
         initial={{ opacity: 0 }}
@@ -211,9 +305,8 @@ export default function TerminalCountdownInteractive() {
             </div>
           ))}
         </div>
-
         <div className="flex items-center border-t border-green-500/30 pt-4">
-          <span className="pr-2 text-green-400">root@devhack:~$</span>
+          <span className="pr-2 text-green-400">root@eds:~$</span>
           <input
             type="text"
             className="w-full bg-transparent text-green-500 outline-none"
@@ -223,9 +316,15 @@ export default function TerminalCountdownInteractive() {
             autoFocus
           />
         </div>
+        <div className="mt-6 text-sm">
+          <p>Live Countdown to February 14, 2025:</p>
+          <p>
+            {timeLeft.days}d : {timeLeft.hours}h : {timeLeft.minutes}m :{" "}
+            {timeLeft.seconds}s
+          </p>
+        </div>
       </motion.div>
-
-      <style jsx>{`
+      {/* <style jsx>{`
         .terminal-content::-webkit-scrollbar {
           width: 8px;
         }
@@ -236,24 +335,15 @@ export default function TerminalCountdownInteractive() {
           background: #238636;
           border-radius: 4px;
         }
-        @keyframes typing {
-          from {
-            width: 0;
-          }
-          to {
-            width: 100%;
-          }
-        }
-      `}</style>
+      \`}</style> */}
     </div>
   );
 }
 
-// Matrix rain component
 const MatrixRain = () => {
   return (
     <div className="fixed inset-0 pointer-events-none opacity-20">
-      {/* Add matrix rain effect here */}
+      <div className="w-full h-full animate-spin-slow bg-gradient-to-b from-transparent to-green-600" />
     </div>
   );
 };
