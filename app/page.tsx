@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useState, KeyboardEvent, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { virtualFileSystem, getNode, parsePath } from "./utils/fileSystem";
-import { FileSystemNode } from "./types/system";
+import { getNode } from "./utils/fileSystem";
 
 const ASCII_ART = `
 ███████╗██████╗  ███████╗
