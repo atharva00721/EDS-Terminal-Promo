@@ -36,6 +36,7 @@ print("".join(msg1))
 `;
 
 const SOLUTION = "dev hacks";
+const BINARY_SEQUENCE = "11100 11 11111100101";
 
 export default function EDSTerminalAppRefined() {
   // phases: "loading", "join", "guest", "admin"
@@ -48,7 +49,11 @@ export default function EDSTerminalAppRefined() {
     { text: string; type: "input" | "output" | "error" | "success" }[]
   >([]);
   const terminalRef = useRef<HTMLDivElement>(null);
-  const [showMatrix, setShowMatrix] = useState(false);
+  const [username, setUsername] = useState("guest");
+  const [adminAttempts, setAdminAttempts] = useState(0);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [securityMessage, setSecurityMessage] = useState("");
 
   // Update countdown every second (when in guest phase)
   useEffect(() => {
@@ -83,12 +88,13 @@ export default function EDSTerminalAppRefined() {
       { text: "Loading core modules...", delay: 400 },
       { text: "Establishing secure connection...", delay: 400 },
       { text: ASCII_ART, delay: 200 },
+      { text: `Welcome, ${username}!`, delay: 300 },
       {
         text: "Terminal ready. Type 'help' to view available options.",
         delay: 300,
       },
       {
-        text: "Options include: countdown, matrix, about, history, solve <answer>",
+        text: "Options include: countdown, about, history, solve <answer>",
         delay: 300,
       },
       {
@@ -110,7 +116,8 @@ export default function EDSTerminalAppRefined() {
     text: string,
     type: "input" | "output" | "error" | "success"
   ) => {
-    setLogs((prev) => [...prev, { text, type }]);
+    const logText = type === "input" ? `${username}@eds:~$ ${text}` : text;
+    setLogs((prev) => [...prev, { text: logText, type }]);
     // Auto scroll
     setTimeout(() => {
       terminalRef.current?.scrollTo({
@@ -124,7 +131,7 @@ export default function EDSTerminalAppRefined() {
     const trimmedCommand = command.trim();
     const lowerCommand = trimmedCommand.toLowerCase();
     setCommandHistory((prev) => [...prev, trimmedCommand]);
-    addLog(`root@eds:~$ ${command}`, "input");
+    addLog(command, "input");
 
     if (phase === "guest") {
       if (lowerCommand === "help") {
@@ -133,9 +140,9 @@ export default function EDSTerminalAppRefined() {
 help         - Show help message
 clear        - Clear terminal
 countdown    - Show time until February 14, 2025
-matrix       - Toggle Matrix effect
 about        - About EDS
 history      - Show command history
+whoami       - Display current user
 solve <ans>  - Submit solution for the puzzle`,
           "output"
         );
@@ -150,9 +157,6 @@ ${timeLeft.minutes} minutes
 ${timeLeft.seconds} seconds`,
           "success"
         );
-      } else if (lowerCommand === "matrix") {
-        setShowMatrix(!showMatrix);
-        addLog("Toggling Matrix effect...", "output");
       } else if (lowerCommand === "about") {
         addLog(
           `Echelon Dev Society (EDS)
@@ -161,16 +165,39 @@ Join our community for cutting-edge developments.`,
           "output"
         );
       } else if (lowerCommand === "history") {
-        addLog(commandHistory.join("\n"), "output");
+        const maskedHistory = commandHistory.map((cmd) => {
+          if (
+            cmd.toLowerCase().startsWith("solve") &&
+            cmd.toLowerCase().includes(SOLUTION)
+          ) {
+            return "solve [REDACTED]";
+          }
+          return cmd;
+        });
+        addLog(maskedHistory.join("\n"), "output");
+      } else if (lowerCommand === "whoami") {
+        addLog(`Current user: ${username}`, "success");
       } else if (lowerCommand.startsWith("solve")) {
         const userAnswer = trimmedCommand.slice(6).trim().toLowerCase();
         if (userAnswer === SOLUTION) {
           addLog(
-            "🎉 Congratulations! You've solved the puzzle and unlocked the easter egg!",
+            `🎉 Congratulations! You've solved the puzzle!
+
+Binary sequence unlocked: ${BINARY_SEQUENCE}
+
+This sequence might be useful later... 
+Keep it somewhere safe.
+
+Try converting it to other formats, it might reveal something interesting...`,
             "success"
           );
         } else {
-          addLog("Incorrect solution. Try again.", "error");
+          addLog(
+            `Incorrect solution. Try again.
+Hint: Look carefully at the XOR operation in the code.
+Each character is XORed with 0, which means...`,
+            "error"
+          );
         }
       } else if (lowerCommand === "") {
         // Do nothing for empty command
@@ -208,9 +235,9 @@ Join our community for cutting-edge developments.`,
 
   if (phase === "loading") {
     return (
-      <div className="min-h-screen bg-black text-green-500 font-mono flex flex-col justify-center items-center">
+      <div className="h-screen bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center">
         <motion.div
-          className="text-center"
+          className="text-center bg-black/20 p-8 rounded-lg backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1 }}
@@ -224,28 +251,58 @@ Join our community for cutting-edge developments.`,
 
   if (phase === "join") {
     return (
-      <div className="min-h-screen bg-black text-green-500 font-mono flex flex-col justify-center items-center">
+      <div className="h-screen bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center">
         <motion.div
-          className="text-center p-6 border border-green-500 rounded-md"
+          className="text-center p-6 border border-green-500 rounded-md bg-black/20 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1 }}
         >
           <h1 className="text-3xl mb-4">Welcome to EDS Terminal</h1>
-          <p className="mb-6">Select your access level:</p>
-          <div className="flex gap-4 justify-center">
-            <button
-              className="px-4 py-2 border border-green-500 rounded hover:bg-green-500 hover:text-black transition"
-              onClick={() => setPhase("guest")}
-            >
-              Join as Guest
-            </button>
-            <button
-              className="px-4 py-2 border border-green-500 rounded hover:bg-green-500 hover:text-black transition"
-              onClick={() => setPhase("admin")}
-            >
-              Join as Admin
-            </button>
+          <div className="mb-6 space-y-4">
+            <div className="flex flex-col items-center gap-2">
+              <label htmlFor="username" className="text-sm">
+                Enter your username:
+              </label>
+              <input
+                type="text"
+                id="username"
+                className="px-4 py-2 bg-black/50 border border-green-500 rounded text-center focus:outline-none focus:border-green-400"
+                value={username}
+                onChange={(e) =>
+                  setUsername(
+                    e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")
+                  )
+                }
+                placeholder="username"
+                maxLength={15}
+              />
+            </div>
+            <p className="text-sm text-green-400/70">
+              Select your access level:
+            </p>
+            <div className="flex gap-4 justify-center">
+              <button
+                className="px-4 py-2 border border-green-500 rounded hover:bg-green-500 hover:text-black transition"
+                onClick={() => {
+                  if (username.trim()) {
+                    setPhase("guest");
+                  }
+                }}
+              >
+                Join as Guest
+              </button>
+              <button
+                className="px-4 py-2 border border-green-500 rounded hover:bg-green-500 hover:text-black transition"
+                onClick={() => {
+                  if (username.trim()) {
+                    setPhase("admin");
+                  }
+                }}
+              >
+                Join as Admin
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>
@@ -254,21 +311,137 @@ Join our community for cutting-edge developments.`,
 
   if (phase === "admin") {
     return (
-      <div className="min-h-screen bg-black text-green-500 font-mono flex flex-col justify-center items-center">
+      <div className="h-screen bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center">
         <motion.div
-          className="text-center p-6 border border-green-500 rounded-md"
+          className="w-full max-w-3xl border border-green-500 p-6 rounded-md bg-black/20 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1 }}
         >
-          <h1 className="text-3xl mb-4">Admin Panel</h1>
-          <p className="mb-6">Admin access coming soon!</p>
-          <button
-            className="px-4 py-2 border border-green-500 rounded hover:bg-green-500 hover:text-black transition"
-            onClick={() => setPhase("join")}
-          >
-            Back
-          </button>
+          <div className="space-y-4">
+            <div className="flex flex-col space-y-2">
+              <div className="text-sm border border-red-500/50 bg-red-500/10 p-3 rounded">
+                <span className="text-red-500 font-bold">SECURITY ALERT:</span>
+                <div className="mt-1 text-red-400/80">
+                  • All access attempts are logged and monitored
+                  <br />
+                  • Unauthorized access is prohibited by law
+                  <br />• Multiple failed attempts will trigger system lockdown
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-sm">
+                <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span>System Status: ACTIVE</span>
+                <span className="text-xs text-green-500/50">
+                  {new Date().toISOString()}
+                </span>
+              </div>
+
+              <div className="border border-green-500/20 bg-black/40 p-4 rounded-md space-y-3">
+                <div className="animate-pulse text-sm">
+                  <span className="text-green-400">[SYS]</span> Secure
+                  authentication required...
+                </div>
+
+                {isAuthenticating ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="animate-spin">⠋</span>
+                      <span>Authenticating...</span>
+                    </div>
+                    <div className="h-1 bg-green-500/20 rounded">
+                      <div className="h-full w-1/2 bg-green-500 rounded animate-pulse" />
+                    </div>
+                    <div className="text-xs text-green-500/50">
+                      Verifying credentials...
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span>Administrator Password:</span>
+                    <input
+                      type="password"
+                      className="flex-1 bg-transparent border-b border-green-500 outline-none text-green-500 px-2 py-1 font-mono"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && adminPassword) {
+                          setIsAuthenticating(true);
+                          setSecurityMessage(
+                            "Validating security credentials..."
+                          );
+
+                          setTimeout(() => {
+                            setSecurityMessage(
+                              "Checking access permissions..."
+                            );
+                          }, 1000);
+
+                          setTimeout(() => {
+                            setSecurityMessage(
+                              "Access denied: Invalid security clearance"
+                            );
+                            setAdminAttempts((prev) => prev + 1);
+                            setAdminPassword("");
+                            setIsAuthenticating(false);
+
+                            if (adminAttempts >= 2) {
+                              addLog(
+                                "SECURITY BREACH DETECTED: System locked. Access denied.",
+                                "error"
+                              );
+                              setPhase("join");
+                              setAdminAttempts(0);
+                            }
+                          }, 2000);
+                        } else if (e.key === "Escape") {
+                          setAdminPassword("");
+                          setAdminAttempts(0);
+                          setPhase("join");
+                        }
+                      }}
+                      autoFocus
+                      disabled={isAuthenticating}
+                    />
+                  </div>
+                )}
+
+                {securityMessage && (
+                  <div className="text-sm text-yellow-500 animate-pulse">
+                    {securityMessage}
+                  </div>
+                )}
+
+                {adminPassword && adminAttempts > 0 && !isAuthenticating && (
+                  <div className="text-red-500 text-sm animate-pulse border border-red-500/20 bg-red-500/5 p-2 rounded">
+                    SECURITY ALERT: Authentication failed. {3 - adminAttempts}{" "}
+                    attempts remaining before lockout.
+                  </div>
+                )}
+
+                <div className="text-xs text-green-500/50 border-t border-green-500/20 pt-2">
+                  [ESC] Exit | [ENTER] Authenticate | Secure Connection: ENABLED
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-4">
+              <button
+                className="px-4 py-2 border border-green-500 rounded hover:bg-green-500 hover:text-black transition text-sm group relative"
+                onClick={() => {
+                  setAdminPassword("");
+                  setAdminAttempts(0);
+                  setPhase("join");
+                }}
+                disabled={isAuthenticating}
+              >
+                <span className="group-hover:animate-pulse">
+                  Exit Secure Terminal
+                </span>
+              </button>
+            </div>
+          </div>
         </motion.div>
       </div>
     );
@@ -276,17 +449,16 @@ Join our community for cutting-edge developments.`,
 
   // Phase === "guest"
   return (
-    <div className="min-h-screen bg-black text-green-500 font-mono flex flex-col justify-center items-center p-4">
-      {showMatrix && <MatrixRain />}
+    <div className="h-screen overflow-hidden bg-[#0a0a0a] text-green-500 font-mono flex flex-col justify-center items-center p-4">
       <motion.div
-        className="w-full max-w-3xl border border-green-500 p-6 rounded-md bg-black/90 shadow-xl backdrop-blur-sm"
+        className="w-full max-w-3xl border border-green-500 p-6 rounded-md bg-black/20 shadow-xl backdrop-blur-sm relative z-10"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1 }}
       >
         <div
           ref={terminalRef}
-          className="h-[70vh] overflow-y-auto mb-4 terminal-content"
+          className="h-[70vh] overflow-y-auto mb-4 terminal-content terminal-scrollbar"
         >
           {logs.map((log, index) => (
             <div
@@ -306,7 +478,7 @@ Join our community for cutting-edge developments.`,
           ))}
         </div>
         <div className="flex items-center border-t border-green-500/30 pt-4">
-          <span className="pr-2 text-green-400">root@eds:~$</span>
+          <span className="pr-2 text-green-400">{username}@eds:~$</span>
           <input
             type="text"
             className="w-full bg-transparent text-green-500 outline-none"
@@ -317,33 +489,13 @@ Join our community for cutting-edge developments.`,
           />
         </div>
         <div className="mt-6 text-sm">
-          <p>Live Countdown to February 14, 2025:</p>
+          <p>coming soon</p>
           <p>
             {timeLeft.days}d : {timeLeft.hours}h : {timeLeft.minutes}m :{" "}
             {timeLeft.seconds}s
           </p>
         </div>
       </motion.div>
-      {/* <style jsx>{`
-        .terminal-content::-webkit-scrollbar {
-          width: 8px;
-        }
-        .terminal-content::-webkit-scrollbar-track {
-          background: #0a0a0a;
-        }
-        .terminal-content::-webkit-scrollbar-thumb {
-          background: #238636;
-          border-radius: 4px;
-        }
-      \`}</style> */}
     </div>
   );
 }
-
-const MatrixRain = () => {
-  return (
-    <div className="fixed inset-0 pointer-events-none opacity-20">
-      <div className="w-full h-full animate-spin-slow bg-gradient-to-b from-transparent to-green-600" />
-    </div>
-  );
-};

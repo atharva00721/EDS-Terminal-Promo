@@ -221,3 +221,52 @@ body {
 .neon-text {
   animation: neon-pulse 1.5s infinite alternate;
 }
+
+/* Terminal Scrollbar Styles */
+.terminal-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.terminal-scrollbar::-webkit-scrollbar-track {
+  background: #0a0a0a;
+  border: 1px solid #1a1a1a;
+}
+
+.terminal-scrollbar::-webkit-scrollbar-thumb {
+  background: #238636;
+  border-radius: 4px;
+  box-shadow: 0 0 5px rgba(35, 134, 54, 0.5);
+}
+
+.terminal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #2ea043;
+  box-shadow: 0 0 8px rgba(35, 134, 54, 0.8);
+}
+
+.terminal-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #238636 #0a0a0a;
+}
+
+.terminal-scrollbar::-webkit-scrollbar-corner {
+  background: #0a0a0a;
+}
+
+/* Add these styles for a subtle animation if desired */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.bg-gradient-animate {
+  background-size: 200% 200%;
+  animation: gradient-shift 15s ease infinite;
+}
