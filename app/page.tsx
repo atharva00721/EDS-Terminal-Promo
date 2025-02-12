@@ -2,24 +2,13 @@
 import { useEffect, useState, KeyboardEvent, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getNode } from "./utils/fileSystem";
+import { runCitronicSequence } from "./utils/citronicSequence";
+import { Button } from "@/components/ui/button";
 
 const ASCII_ART = `
-███████╗██████╗  ███████╗
-██╔════╝██╔══██╗ ██╔════╝
-█████╗  ██║  ██║ ███████╗
-██╔══╝  ██║  ██║ ╚════██║
-███████╗██████╔╝ ███████║
-╚══════╝╚═════╝  ╚══════╝
-Echelon Dev Society Terminal Edition
-`;
-
-const CITRONICS_ART = `
- ██████╗██╗████████╗██████╗  ██████╗ ███╗   ██╗██╗ ██████╗███████╗
-██╔════╝██║╚══██╔══╝██╔══██╗██╔═══██╗████╗  ██║██║██╔════╝██╔════╝
-██║     ██║   ██║   ██████╔╝██║   ██║██╔██╗ ██║██║██║     ███████╗
-██║     ██║   ██║   ██╔══██╗██║   ██║██║╚██╗██║██║██║     ╚════██║
-╚██████╗██║   ██║   ██║  ██║╚██████╔╝██║ ╚████║██║╚██████╗███████║
- ╚═════╝╚═╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝ ╚═════╝╚══════╝`;
+╔═══════════════════════════════╗
+║ Echelon Dev Society Terminal  ║
+╚═══════════════════════════════╝`;
 
 const calculateTimeLeft = () => {
   const difference =
@@ -126,7 +115,7 @@ export default function EDSTerminalAppRefined() {
       simulateBootSequence();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
+  }, [phase, username]);
 
   const simulateBootSequence = async () => {
     const bootMessages = [
@@ -286,8 +275,7 @@ Each character is XORed with 0, which means...`,
           addLog("File not found", "error");
         }
       } else if (lowerCommand === "citro") {
-        addLog(CITRONICS_ART, "success");
-        addLog("\nComing Soon...", "output");
+        await runCitronicSequence(addLog);
       } else if (lowerCommand === "") {
         // Do nothing for empty command
       } else if (!COMMANDS.includes(lowerCommand.split(" ")[0])) {
@@ -656,7 +644,7 @@ Each character is XORed with 0, which means...`,
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                 <span>Connection Secure</span>
               </div>
-              <button
+              <Button
                 onClick={() => {
                   setAdminPassword("");
                   setAdminAttempts(0);
@@ -665,7 +653,7 @@ Each character is XORed with 0, which means...`,
                 className="text-green-500 hover:text-green-400 transition-colors"
               >
                 Exit Terminal
-              </button>
+              </Button>
             </motion.div>
           </div>
         </motion.div>
