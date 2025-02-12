@@ -1,101 +1,259 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState, KeyboardEvent, useRef } from "react";
+import { motion } from "framer-motion";
+
+const calculateTimeLeft = () => {
+  const difference =
+    new Date("2025-02-14T00:00:00").getTime() - new Date().getTime();
+  return {
+    days: Math.max(0, Math.floor(difference / (1000 * 60 * 60 * 24))),
+    hours: Math.max(0, Math.floor((difference / (1000 * 60 * 60)) % 24)),
+    minutes: Math.max(0, Math.floor((difference / 1000 / 60) % 60)),
+    seconds: Math.max(0, Math.floor((difference / 1000) % 60)),
+  };
+};
+
+const ASCII_ART = `
+██████╗ ███████╗██╗   ██╗██╗  ██╗ █████╗  ██████╗██╗  ██╗
+██╔══██╗██╔════╝██║   ██║██║  ██║██╔══██╗██╔════╝██║ ██╔╝
+██║  ██║█████╗  ██║   ██║███████║███████║██║     █████╔╝ 
+██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══██║██╔══██║██║     ██╔═██╗ 
+██████╔╝███████╗ ╚████╔╝ ██║  ██║██║  ██║╚██████╗██║  ██╗
+╚═════╝ ╚══════╝  ╚═══╝  ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+`;
+
+export default function TerminalCountdownInteractive() {
+  const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
+  const [command, setCommand] = useState("");
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [logs, setLogs] = useState<
+    { text: string; type: "input" | "output" | "error" | "success" }[]
+  >([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const terminalRef = useRef<HTMLDivElement>(null);
+
+  // Matrix rain effect state
+  const [showMatrix, setShowMatrix] = useState(false);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    // Initial boot sequence
+    simulateBootSequence();
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const simulateBootSequence = async () => {
+    const bootMessages = [
+      { text: "Initializing system...", delay: 500 },
+      { text: "Loading kernel modules...", delay: 300 },
+      { text: "Establishing secure connection...", delay: 400 },
+      { text: ASCII_ART, delay: 100 },
+      {
+        text: "Terminal ready. Type 'help' for available commands.",
+        delay: 200,
+      },
+    ];
+
+    for (const msg of bootMessages) {
+      await new Promise((resolve) => setTimeout(resolve, msg.delay));
+      addLog(msg.text, "output");
+    }
+  };
+
+  const addLog = (
+    text: string,
+    type: "input" | "output" | "error" | "success"
+  ) => {
+    setLogs((prev) => [...prev, { text, type }]);
+    setTimeout(() => {
+      terminalRef.current?.scrollTo({
+        top: terminalRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }, 100);
+  };
+
+  const handleCommand = async () => {
+    const trimmedCommand = command.trim().toLowerCase();
+
+    // Add to command history
+    setCommandHistory((prev) => [...prev, trimmedCommand]);
+    addLog(`root@devhack:~$ ${command}`, "input");
+
+    // Command processing
+    switch (trimmedCommand) {
+      case "help":
+        addLog(
+          `Available commands:
+          help        - Show this help message
+          clear      - Clear terminal
+          countdown  - Show time until event
+          matrix     - Toggle matrix effect
+          about      - About DevHack
+          easteregg  - ???
+          history    - Show command history`,
+          "output"
+        );
+        break;
+
+      case "clear":
+        setLogs([]);
+        break;
+
+      case "countdown":
+        addLog(
+          `Time remaining until DevHack 2025:
+          ${timeLeft.days} days
+          ${timeLeft.hours} hours
+          ${timeLeft.minutes} minutes
+          ${timeLeft.seconds} seconds`,
+          "success"
+        );
+        break;
+
+      case "matrix":
+        setShowMatrix(!showMatrix);
+        addLog("Toggling Matrix effect...", "output");
+        break;
+
+      case "about":
+        addLog(
+          `DevHack 2025
+          A revolutionary hackathon experience.
+          Date: February 14, 2025
+          Location: [Classified]
+          Prize Pool: $$$`,
+          "output"
+        );
+        break;
+
+      case "history":
+        addLog(commandHistory.join("\n"), "output");
+        break;
+
+      case "easteregg":
+        addLog("Initiating secret sequence...", "success");
+        // Add your creative easter egg here
+        setTimeout(() => {
+          addLog("🎉 Congratulations! You found the easter egg!", "success");
+          // Add more creative responses
+        }, 1000);
+        break;
+
+      case "":
+        break;
+
+      default:
+        addLog(`Command not found: ${command}`, "error");
+    }
+
+    setCommand("");
+    setHistoryIndex(-1);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleCommand();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (historyIndex < commandHistory.length - 1) {
+        const newIndex = historyIndex + 1;
+        setHistoryIndex(newIndex);
+        setCommand(commandHistory[commandHistory.length - 1 - newIndex]);
+      }
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (historyIndex > 0) {
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
+        setCommand(commandHistory[commandHistory.length - 1 - newIndex]);
+      } else {
+        setHistoryIndex(-1);
+        setCommand("");
+      }
+    }
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="min-h-screen bg-black text-green-500 font-mono flex flex-col justify-center items-center p-4">
+      {showMatrix && <MatrixRain />}
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      <motion.div
+        className="w-full max-w-3xl border border-green-500 p-6 rounded-md bg-black/90 shadow-xl backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1 }}
+      >
+        <div
+          ref={terminalRef}
+          className="h-[70vh] overflow-y-auto mb-4 terminal-content"
+        >
+          {logs.map((log, index) => (
+            <div
+              key={index}
+              className={`whitespace-pre-wrap ${
+                log.type === "error"
+                  ? "text-red-500"
+                  : log.type === "success"
+                  ? "text-green-400"
+                  : log.type === "input"
+                  ? "text-blue-400"
+                  : "text-green-500"
+              }`}
+            >
+              {log.text}
+            </div>
+          ))}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+
+        <div className="flex items-center border-t border-green-500/30 pt-4">
+          <span className="pr-2 text-green-400">root@devhack:~$</span>
+          <input
+            type="text"
+            className="w-full bg-transparent text-green-500 outline-none"
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            onKeyDown={handleKeyDown}
+            autoFocus
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </div>
+      </motion.div>
+
+      <style jsx>{`
+        .terminal-content::-webkit-scrollbar {
+          width: 8px;
+        }
+        .terminal-content::-webkit-scrollbar-track {
+          background: #0a0a0a;
+        }
+        .terminal-content::-webkit-scrollbar-thumb {
+          background: #238636;
+          border-radius: 4px;
+        }
+        @keyframes typing {
+          from {
+            width: 0;
+          }
+          to {
+            width: 100%;
+          }
+        }
+      `}</style>
     </div>
   );
 }
+
+// Matrix rain component
+const MatrixRain = () => {
+  return (
+    <div className="fixed inset-0 pointer-events-none opacity-20">
+      {/* Add matrix rain effect here */}
+    </div>
+  );
+};
