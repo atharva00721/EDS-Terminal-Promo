@@ -36,7 +36,7 @@ print("".join(msg1))
 `;
 
 const SOLUTION = "dev hacks";
-const BINARY_SEQUENCE = "11100 11 11111100101";
+const BINARY_SEQUENCE = "11100 11 11111101001";
 
 export default function EDSTerminalAppRefined() {
   // phases: "loading", "join", "guest", "admin"
@@ -139,7 +139,7 @@ export default function EDSTerminalAppRefined() {
           `Available commands:
 help         - Show help message
 clear        - Clear terminal
-countdown    - Show time until February 14, 2025
+countdown    - time until the reveal
 about        - About EDS
 history      - Show command history
 whoami       - Display current user
@@ -150,7 +150,7 @@ solve <ans>  - Submit solution for the puzzle`,
         setLogs([]);
       } else if (lowerCommand === "countdown") {
         addLog(
-          `Time remaining until February 14, 2025:
+          `are you ready?
 ${timeLeft.days} days
 ${timeLeft.hours} hours
 ${timeLeft.minutes} minutes
